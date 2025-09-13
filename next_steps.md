@@ -1,38 +1,18 @@
-  🎯 Immediate Improvements
 
-  1. Web UI - Create a simple web interface instead of using curl commands
-    - Generate conversations with dropdowns for personalities/topics
-    - Play audio directly in browser
-    - View generation history
-  2. More Content - Expand the personality roster
-    - Add more characters with unique voice settings
-    - Create more topic categories
-    - Add seasonal/themed content
+  Content & Quality Improvements:
 
-  🔧 Quality of Life
+  3. Improve conversation flow - Add more varied intro/outro templates, transition phrases
+  4. Content quality tuning - Adjust LLM prompts for even better radio-style content
 
-  3. Configuration File - Move settings out of code
-    - API keys, intervals, voice settings
-    - Easy to tweak without code changes
-  4. Better Audio Management
-    - Audio playlist/queue system
-    - Crossfading between segments
-    - Volume normalization
+  Audio & Voice Enhancements:
 
-  🚀 Advanced Features
+  6. Better audio processing - Improve radio effects, background music, sound mixing
+  7. Dynamic audio - Add pause variations, natural speech patterns, overlapping dialogue
 
-  5. Live Radio Mode - Continuous streaming
-    - Auto-play generated content in sequence
-    - Live conversation scheduling
-    - Seamless transitions
-  6. Interactive Mode - Real-time control
-    - Interrupt conversations with listener calls
-    - Dynamic topic switching
-    - Real-time voice parameter tweaking
+  User Experience:
 
-  📊 Polish
+  10. Real-time streaming - Live radio stream with scheduled content generation
 
-  7. Testing & Monitoring
-    - Unit tests for each module
-    - Performance metrics dashboard
-    - Error recovery mechanisms
+  Advanced Features:
+
+  15. Interactive elements - User can call in, suggest topics, vote on content
