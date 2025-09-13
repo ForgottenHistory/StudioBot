@@ -34,9 +34,9 @@ class ConversationGenerator:
             }
         }
 
-        # Timing settings (ranges for randomization)
-        self.pause_between_speakers = (0.4, 0.7)  # Random range for different speakers
-        self.pause_same_speaker = (0.1, 0.3)      # Random range for same speaker continuing
+        # Timing settings (ranges for randomization) - minimized for seamless audio
+        self.pause_between_speakers = (0.0, 0.1)  # Minimal pause for different speakers
+        self.pause_same_speaker = (0.0, 0.05)     # Almost no pause for same speaker continuing
 
     def parse_conversation(self, conversation_text):
         """Parse conversation text into speaker/dialogue pairs"""

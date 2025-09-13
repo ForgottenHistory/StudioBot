@@ -260,11 +260,6 @@ class VoiceManager:
 
                     combined_audio.append(audio_data)
 
-                    # Add small silence between segments (0.5 seconds)
-                    silence_samples = int(0.5 * sample_rate)
-                    silence = np.zeros(silence_samples)
-                    combined_audio.append(silence)
-
                 except Exception as e:
                     print(f"[VOICE] Error loading audio file {audio_file}: {e}")
                     continue
