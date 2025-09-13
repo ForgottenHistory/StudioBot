@@ -1,0 +1,21 @@
+# StudioBot AI Radio System Dependencies
+
+# Core TTS and Audio
+torch>=2.0.0
+torchaudio>=2.0.0
+chatterbox-tts
+
+# Audio Processing
+soundfile>=0.12.1
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Web Server
+flask>=2.3.0
+requests>=2.31.0
+
+# Optional: Enhanced Audio Processing
+# pydub>=0.25.1  # Alternative audio processing (not used in current version)
+
+# Development/Testing
+# pytest>=7.0.0  # For future testing framework

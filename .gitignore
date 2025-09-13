@@ -179,3 +179,7 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+chatterbox_test_output.wav
+.claude/settings.local.json
+/temp_audio
+/voices
