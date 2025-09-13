@@ -31,6 +31,9 @@ class DynamicContentGenerator:
         if not topic:
             topic = self.content_manager.get_random_topic()
 
+        print(f"[CONTENT] === GENERATING THEMED ADVERTISEMENT ===")
+        print(f"[CONTENT] Topic: {topic.theme}")
+
         # Create enhanced prompt with topic details
         products_list = ', '.join(topic.products[:3])  # Use first 3 products as examples
 
@@ -53,6 +56,11 @@ Make it sound like a real radio ad but completely ridiculous. No special charact
         """Generate conversation content between two personalities"""
         if not topic:
             topic = self.content_manager.get_random_topic()
+
+        print(f"[CONTENT] === GENERATING CONVERSATION ===")
+        print(f"[CONTENT] Host: {personality1.name} ({personality1.role})")
+        print(f"[CONTENT] Guest: {personality2.name} ({personality2.role})")
+        print(f"[CONTENT] Topic: {topic.theme}")
 
         # Generate random radio intro/outro templates
         radio_intros = [
@@ -127,6 +135,13 @@ Example structure:
             "max_tokens": self.max_tokens,
             "temperature": self.temperature
         }
+
+        print(f"[CONTENT] Generating content with OpenRouter API")
+        print(f"[CONTENT] LLM Settings:")
+        print(f"  - Model: {self.model}")
+        print(f"  - Max Tokens: {self.max_tokens}")
+        print(f"  - Temperature: {self.temperature}")
+        print(f"  - Prompt length: {len(prompt)} characters")
 
         try:
             response = requests.post(url, headers=headers, json=data, timeout=30)

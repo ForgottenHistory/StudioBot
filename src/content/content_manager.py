@@ -5,6 +5,7 @@ Handles loading and managing topics and personalities from files.
 
 import os
 import random
+import yaml
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
@@ -72,32 +73,42 @@ class ContentManager:
             print("[CONTENT] Personalities directory not found")
             return
 
-        for personality_file in personalities_dir.glob("*.txt"):
+        # Load both YAML and TXT personality files (prefer YAML)
+        personality_files = list(personalities_dir.glob("*.yaml")) + list(personalities_dir.glob("*.txt"))
+
+        for personality_file in personality_files:
             try:
-                personality_data = self.parse_content_file(personality_file)
+                if personality_file.suffix == '.yaml':
+                    personality_data = self.parse_yaml_file(personality_file)
+                else:
+                    personality_data = self.parse_content_file(personality_file)
 
                 # Extract extra data (anything not in standard fields)
-                standard_fields = {'name', 'role', 'voice', 'description', 'personality_traits', 'catchphrases', 'speaking_style'}
+                standard_fields = {'name', 'role', 'voice', 'description', 'personality_traits', 'catchphrases', 'speaking_style', 'voice_settings'}
                 extra_data = {k: v for k, v in personality_data.items() if k not in standard_fields}
 
-                # Parse voice settings if present
+                # Handle voice settings
                 voice_settings = {}
                 if 'voice_settings' in personality_data:
-                    voice_settings_text = personality_data['voice_settings']
-                    voice_settings = self.parse_voice_settings(voice_settings_text)
+                    if isinstance(personality_data['voice_settings'], dict):
+                        # YAML format - already a dictionary
+                        voice_settings = personality_data['voice_settings']
+                    else:
+                        # Old TXT format - needs parsing
+                        voice_settings = self.parse_voice_settings(personality_data['voice_settings'])
 
                 personality = Personality(
                     name=personality_data.get('name', personality_file.stem.replace('_', ' ').title()),
                     role=personality_data.get('role', 'guest'),
                     voice=personality_data.get('voice', 'announcer'),
                     description=personality_data.get('description', ''),
-                    personality_traits=self.parse_list(personality_data.get('personality_traits', '')),
-                    catchphrases=self.parse_list(personality_data.get('catchphrases', '')),
+                    personality_traits=self.ensure_list(personality_data.get('personality_traits', [])),
+                    catchphrases=self.ensure_list(personality_data.get('catchphrases', [])),
                     speaking_style=personality_data.get('speaking_style', ''),
                     extra_data={**extra_data, 'voice_settings': voice_settings}
                 )
                 self.personalities[personality.name.lower().replace(' ', '_')] = personality
-                print(f"[CONTENT] Loaded personality: {personality.name}")
+                print(f"[CONTENT] Loaded personality: {personality.name} ({'YAML' if personality_file.suffix == '.yaml' else 'TXT'})")
             except Exception as e:
                 print(f"[CONTENT] Error loading personality {personality_file}: {e}")
 
@@ -134,6 +145,20 @@ class ContentManager:
             data[current_key] = '\n'.join(current_value).strip()
 
         return data
+
+    def parse_yaml_file(self, file_path: Path) -> Dict[str, Any]:
+        """Parse a YAML personality file"""
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f) or {}
+
+    def ensure_list(self, value) -> List[str]:
+        """Ensure value is a list of strings"""
+        if isinstance(value, list):
+            return [str(item) for item in value]
+        elif isinstance(value, str):
+            return self.parse_list(value)
+        else:
+            return []
 
     def parse_list(self, text: str) -> List[str]:
         """Parse a list from text (either newlines with - or comma-separated)"""

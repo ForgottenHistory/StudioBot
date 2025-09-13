@@ -251,6 +251,27 @@ export const useRadioServer = () => {
     }
   }, []);
 
+  const reloadContent = useCallback(async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/reload_content`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Refresh topics and personalities after successful reload
+        loadTopics();
+        loadPersonalities();
+        return { success: true, data };
+      } else {
+        const errorData = await response.json();
+        return { success: false, error: errorData.error };
+      }
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }, [loadTopics, loadPersonalities]);
+
   // Auto-refresh server status
   useEffect(() => {
     checkServerStatus();
@@ -283,6 +304,7 @@ export const useRadioServer = () => {
     controlScheduler,
     getSchedulerStatus,
     playAudio,
+    reloadContent,
     BASE_URL
   };
 };

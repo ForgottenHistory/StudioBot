@@ -22,6 +22,7 @@ function App() {
     controlScheduler,
     getSchedulerStatus,
     playAudio,
+    reloadContent,
     BASE_URL
   } = useRadioServer();
 
@@ -60,6 +61,7 @@ function App() {
             controlScheduler={controlScheduler}
             getSchedulerStatus={getSchedulerStatus}
             checkServerStatus={checkServerStatus}
+            reloadContent={reloadContent}
           />
         );
 

@@ -126,7 +126,6 @@ class VoiceManager:
             # Third priority: fallback to voice field if it exists in mapping
             if personality.voice in self.voice_mapping:
                 return self.voice_mapping[personality.voice]
-
         # Default fallback
         return self.voice_mapping.get("host", self.voice_mapping.get("announcer", list(self.voice_mapping.values())[0]))
 
@@ -137,7 +136,14 @@ class VoiceManager:
         elif not voice_config:
             voice_config = self.voice_mapping["host"]
 
-        print(f"[VOICE] Generating TTS: {text[:30]}...")
+        print(f"[VOICE] Generating TTS for {'personality: ' + personality_name if personality_name else 'default'}")
+        print(f"[VOICE] Text: {text[:50]}{'...' if len(text) > 50 else ''}")
+        print(f"[VOICE] TTS Settings:")
+        print(f"  - Voice file: {voice_config['voice_file']}")
+        print(f"  - Exaggeration: {voice_config['exaggeration']}")
+        print(f"  - Temperature: {voice_config['temperature']}")
+        print(f"  - CFG Weight: {voice_config['cfg_weight']}")
+        print(f"  - Radio Effect: {voice_config['radio_effect']}")
 
         try:
             # Generate TTS

@@ -7,17 +7,20 @@ import {
   Calendar,
   Play,
   Square,
-  RefreshCw
+  RefreshCw,
+  RotateCcw
 } from 'lucide-react';
 
 const ServerStatus = ({
   serverStatus,
   controlScheduler,
   getSchedulerStatus,
-  checkServerStatus
+  checkServerStatus,
+  reloadContent
 }) => {
   const [schedulerStatus, setSchedulerStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [reloadMessage, setReloadMessage] = useState('');
 
   const loadSchedulerStatus = async () => {
     const result = await getSchedulerStatus();
@@ -38,6 +41,21 @@ const ServerStatus = ({
     setIsLoading(true);
     await controlScheduler(action);
     await loadSchedulerStatus();
+    setIsLoading(false);
+  };
+
+  const handleReloadContent = async () => {
+    setIsLoading(true);
+    setReloadMessage('');
+    const result = await reloadContent();
+    if (result.success) {
+      setReloadMessage(`✓ ${result.data.message}`);
+      // Clear message after 3 seconds
+      setTimeout(() => setReloadMessage(''), 3000);
+    } else {
+      setReloadMessage(`✗ Error: ${result.error}`);
+      setTimeout(() => setReloadMessage(''), 5000);
+    }
     setIsLoading(false);
   };
 
@@ -181,6 +199,33 @@ const ServerStatus = ({
               <Square className="h-4 w-4" />
               Stop Scheduler
             </button>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Content Management</h3>
+                <p className="text-xs text-gray-600">Reload personalities and topics from files</p>
+              </div>
+              <button
+                onClick={handleReloadContent}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <RotateCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Reload Content
+              </button>
+            </div>
+
+            {reloadMessage && (
+              <div className={`mt-2 p-2 rounded text-sm ${
+                reloadMessage.startsWith('✓')
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
+                {reloadMessage}
+              </div>
+            )}
           </div>
         </div>
       )}

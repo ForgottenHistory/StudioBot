@@ -340,6 +340,21 @@ def create_app():
         radio_server.cleanup_old_files()
         return jsonify({"success": True, "message": "Cleanup completed"})
 
+    @app.route('/reload_content', methods=['POST'])
+    def reload_content():
+        """Reload all content files (topics and personalities) without restarting server"""
+        try:
+            radio_server.content_manager.load_all_content()
+            return jsonify({
+                "success": True,
+                "message": f"Content reloaded: {len(radio_server.content_manager.topics)} topics, {len(radio_server.content_manager.personalities)} personalities"
+            })
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+
     # Store radio_server reference for access
     app.radio_server = radio_server
 

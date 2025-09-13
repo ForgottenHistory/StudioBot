@@ -189,13 +189,13 @@ class RadioServer:
         print("Voice Configuration:")
         print("  Role-based mappings:")
         for role, info in voice_info["role_mappings"].items():
-            exists = "✓" if info["exists"] else "✗"
+            exists = "[OK]" if info["exists"] else "[MISSING]"
             print(f"    {exists} {role}: {info['file']}")
 
         print("  Personality-specific settings:")
         for name, info in voice_info["personality_settings"].items():
             if info["custom"]:
-                exists = "✓" if info["exists"] else "✗"
+                exists = "[OK]" if info["exists"] else "[MISSING]"
                 print(f"    {exists} {name}: {info['file']} (custom settings)")
             else:
                 print(f"    - {name}: using role defaults")
