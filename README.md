@@ -2,6 +2,38 @@
 
 An AI-powered radio show system that generates GTA-style advertisements and multi-speaker conversations with voice cloning and realistic radio effects.
 
+## 📁 Project Structure
+
+```
+StudioBot/
+├── 📁 src/                      # Core application source code
+│   ├── api/                     # Flask REST API routes
+│   ├── content/                 # Content generators and managers
+│   ├── radio/                   # Radio server core functionality
+│   ├── voice/                   # Voice synthesis and effects
+│   └── gui/                     # GUI components
+├── 📁 scripts/                  # Utility and standalone scripts
+│   ├── conversation_generator.py
+│   ├── manual_test.py
+│   ├── radio_effects_working.py
+│   └── radio_gui.py
+├── 📁 tests/                    # Test files and debugging tools
+│   ├── debug/                   # Debug scripts
+│   └── test_*.py               # Unit tests
+├── 📁 config/                   # Configuration files
+├── 📁 content/                  # Content data (personalities, topics)
+├── 📁 voices/                   # Voice clone files (.wav)
+├── 📁 temp_audio/              # Generated audio files
+├── 📁 logs/                    # Application logs
+├── 📁 frontend/                # React web interface
+├── 📁 archive/                 # Legacy/deprecated files
+├── radio_music_integration.py  # Main YouTube Music integration
+├── radio_server.py            # Legacy server (use server.py instead)
+├── server.py                  # Main Flask server entry point
+├── start_radio_system.py      # System startup script
+└── config.json               # Main configuration file
+```
+
 ## 🎙️ Features
 
 - **Real-time Ad Generation**: Uses OpenRouter API to create satirical GTA-style ads
