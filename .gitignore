@@ -183,3 +183,5 @@ chatterbox_test_output.wav
 .claude/settings.local.json
 /temp_audio
 /voices
+/content
+/generated_content
