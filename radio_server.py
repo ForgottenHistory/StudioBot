@@ -112,6 +112,62 @@ Make it sound like a real radio ad but completely ridiculous. No special charact
             # Return fallback
             return "Welcome to WKRP Generic Radio! We play music and talk about stuff! Call us maybe!"
 
+    def generate_track_transition_ad(self, track_info, time_remaining):
+        """Generate ad content specifically for track transitions"""
+        if not self.openrouter_api_key:
+            # Fallback content for track transitions
+            fallback_ads = [
+                f"That was some great music! Speaking of great, try NukeIt Fast Food! Our burgers are so radioactive, they glow in the dark and cook themselves!",
+                f"Hope you enjoyed that track! Now here's a message from UltraClean Laundry - we wash your clothes so hard, we accidentally wash away your memories too!",
+                f"Great song there! This ad break brought to you by MegaDent Toothpaste - now with 500% more fluoride! Your teeth will be so white, they'll need sunglasses!"
+            ]
+            return random.choice(fallback_ads)
+
+        # OpenRouter API call for contextual ad
+        url = "https://openrouter.ai/api/v1/chat/completions"
+
+        track_title = track_info.get('title', 'that great song')
+        track_artist = track_info.get('artist', 'that amazing artist')
+
+        prompt = f"""Create a satirical GTA-style radio advertisement that transitions from the song '{track_title}' by {track_artist}. Make it feel like a natural radio transition but absurdly funny. Keep it under 70 words.
+
+Start with a brief transition mentioning the song that just played, then move into a ridiculous advertisement. Include:
+- Natural radio transition feel
+- A completely absurd product or service
+- Over-the-top claims
+- Fake corporate name
+
+Make it sound like a real radio DJ transition into an ad break. No special characters, just plain text."""
+
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_api_key}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "anthropic/claude-3-haiku",
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 200,
+            "temperature": 0.7
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            response.raise_for_status()
+
+            result = response.json()
+            ad_content = result['choices'][0]['message']['content'].strip()
+
+            print(f"[RADIO SERVER] Generated transition ad: {ad_content[:50]}...")
+            return ad_content
+
+        except Exception as e:
+            print(f"[RADIO SERVER] OpenRouter API error: {e}")
+            # Return fallback with track context
+            return f"That was '{track_title}' by {track_artist}! Speaking of great music, try SoundBlaster Hearing Aids - they amplify sound so much, you can hear your neighbor's thoughts! Side effects may include involuntary mind reading and severe social awkwardness."
+
     def generate_tts_audio(self, text, voice="host"):
         """Generate TTS audio for given text and voice"""
         voice_config = self.voices.get(voice, self.voices["host"])
@@ -277,6 +333,68 @@ def list_voices():
             for name, config in radio_server.voices.items()
         }
     })
+
+@app.route('/generate_ad', methods=['POST'])
+def generate_ad_for_track():
+    """Generate ad based on current music track context"""
+    data = request.json
+    if not data:
+        return jsonify({"error": "JSON data required"}), 400
+
+    print(f"[RADIO SERVER] Music-triggered ad generation request")
+
+    # Extract track context
+    current_track = data.get('current_track', {})
+    time_remaining = data.get('time_remaining', 0)
+    ad_type = data.get('ad_type', 'transition')
+
+    # Create contextual theme for ad generation
+    track_title = current_track.get('title', 'Unknown')
+    track_artist = current_track.get('artist', 'Unknown Artist')
+
+    # Generate theme based on track context
+    theme_context = f"transitioning from '{track_title}' by {track_artist}"
+
+    print(f"[RADIO SERVER] Generating ad for track transition: {track_artist} - {track_title}")
+    print(f"[RADIO SERVER] Time remaining: {time_remaining} seconds")
+
+    try:
+        # Generate contextual ad content
+        ad_content = radio_server.generate_track_transition_ad(current_track, time_remaining)
+
+        # Generate TTS audio with announcer voice (good for ads)
+        audio_file = radio_server.generate_tts_audio(ad_content, "announcer")
+
+        if audio_file and os.path.exists(audio_file):
+            response_data = {
+                "success": True,
+                "message": "Ad generated successfully",
+                "content": ad_content,
+                "audio_url": f"/audio/{os.path.basename(audio_file)}",
+                "context": {
+                    "track": current_track,
+                    "time_remaining": time_remaining,
+                    "ad_type": ad_type
+                },
+                "generated_at": datetime.now().isoformat()
+            }
+
+            print(f"[RADIO SERVER] ✅ Ad generated: {ad_content[:50]}...")
+            return jsonify(response_data)
+        else:
+            print(f"[RADIO SERVER] ❌ Failed to generate audio")
+            return jsonify({
+                "success": False,
+                "error": "Failed to generate audio",
+                "content": ad_content
+            }), 500
+
+    except Exception as e:
+        print(f"[RADIO SERVER] ❌ Ad generation error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 @app.route('/cleanup', methods=['POST'])
 def cleanup():

@@ -334,6 +334,94 @@ def create_app():
             print(f"[DEBUG] Working dir: {Path.cwd()}")
             return jsonify({"error": "File not found", "path": str(file_path)}), 404
 
+    @app.route('/generate_ad', methods=['POST'])
+    def generate_ad_for_track():
+        """Generate ad based on current music track context"""
+        data = request.json
+        if not data:
+            return jsonify({"error": "JSON data required"}), 400
+
+        radio_server.logger.info("API REQUEST - Music-triggered ad generation")
+
+        # Extract track context
+        current_track = data.get('current_track', {})
+        time_remaining = data.get('time_remaining', 0)
+        ad_type = data.get('ad_type', 'transition')
+
+        # Create contextual theme for ad generation
+        track_title = current_track.get('title', 'Unknown')
+        track_artist = current_track.get('artist', 'Unknown Artist')
+
+        radio_server.logger.info(f"Generating ad for track transition: {track_artist} - {track_title}")
+        radio_server.logger.info(f"Time remaining: {time_remaining} seconds")
+
+        try:
+            # Generate contextual ad content using your system's topic-based approach
+            topic = radio_server.content_manager.get_random_topic()
+            ad_content = radio_server.content_generator.generate_themed_ad(topic)
+
+            # Add track transition context to the beginning
+            transition_intro = f"That was '{track_title}' by {track_artist}! "
+            ad_content = transition_intro + ad_content
+
+            # Get an announcer-type personality for ads
+            announcer_personalities = [
+                p for p in radio_server.content_manager.personalities.values()
+                if 'announcer' in p.role.lower() or 'caller' in p.role.lower()
+            ]
+            personality = random.choice(announcer_personalities) if announcer_personalities else None
+            personality_name = personality.name if personality else "Generic Announcer"
+
+            # Generate TTS audio
+            audio_file = radio_server.voice_manager.generate_tts_audio(
+                ad_content, personality_name=personality_name
+            )
+
+            if audio_file and os.path.exists(audio_file):
+                # Log the generation
+                radio_server.log_generation(
+                    "music_transition_ad",
+                    ad_content,
+                    topic=topic.theme,
+                    personality=personality_name,
+                    audio_file=os.path.basename(audio_file),
+                    track_context=f"{track_artist} - {track_title}",
+                    time_remaining=time_remaining,
+                    request_type="music_integration"
+                )
+
+                response_data = {
+                    "success": True,
+                    "message": "Ad generated successfully",
+                    "content": ad_content,
+                    "audio_url": f"/audio/{os.path.basename(audio_file)}",
+                    "context": {
+                        "track": current_track,
+                        "time_remaining": time_remaining,
+                        "ad_type": ad_type,
+                        "topic": topic.theme,
+                        "personality": personality_name
+                    },
+                    "generated_at": datetime.now().isoformat()
+                }
+
+                radio_server.logger.info(f"Ad generated successfully: {ad_content[:50]}...")
+                return jsonify(response_data)
+            else:
+                radio_server.logger.error("Failed to generate audio")
+                return jsonify({
+                    "success": False,
+                    "error": "Failed to generate audio",
+                    "content": ad_content
+                }), 500
+
+        except Exception as e:
+            radio_server.logger.error(f"Ad generation error: {e}")
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+
     @app.route('/cleanup', methods=['POST'])
     def cleanup():
         """Manual cleanup of old files"""
