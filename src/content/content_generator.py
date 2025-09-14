@@ -8,6 +8,7 @@ import requests
 from typing import Optional
 
 from src.content.content_manager import Topic, Personality, ContentManager
+from src.content.template_engine import TemplateEngine
 
 
 class DynamicContentGenerator:
@@ -16,13 +17,17 @@ class DynamicContentGenerator:
         self.content_manager = content_manager
         self.config = config
 
+        # Initialize template engine
+        content_dir = config.get('paths.content_dir', 'content') if config else 'content'
+        self.template_engine = TemplateEngine(content_dir)
+
         # Get content generation settings from config
         if self.config:
-            self.max_tokens = self.config.get('content.max_tokens', 300)
+            self.max_tokens = self.config.get('content.max_tokens', 800)  # Increased for conversations
             self.temperature = self.config.get('content.temperature', 0.7)
             self.model = self.config.get('content.model', 'moonshotai/kimi-k2-0905')
         else:
-            self.max_tokens = 300
+            self.max_tokens = 800
             self.temperature = 0.7
             self.model = 'moonshotai/kimi-k2-0905'
 
@@ -78,76 +83,23 @@ Focus on ONE product, make each claim more absurd than the last, end with darkly
 
         # Character-specific comedy rules are generated dynamically
 
-        # Create conversation prompt with improved comedy structure
-        # Get personality-specific details
-        host_catchphrases = getattr(personality1, 'catchphrases', [])[:2]
-        guest_catchphrases = getattr(personality2, 'catchphrases', [])[:3]
+        # Use template engine to generate conversation prompt
+        # Suggest appropriate conversation style based on topic and personalities
+        suggested_style = self.template_engine.suggest_style_for_topic(topic)
 
-        # Randomly select conversation style for the guest
-        conversation_style = self._get_random_conversation_style(personality2, topic)
+        # Optionally override with random style for variety (20% chance)
+        if random.random() < 0.2:
+            suggested_style = self.template_engine.get_random_conversation_style([suggested_style])
 
-        prompt = f"""Create a HILARIOUS radio show conversation between a HOST and GUEST about {topic.theme}.
+        print(f"[CONTENT] Using conversation style: {suggested_style}")
 
-HOST: {personality1.name}
-- Role: {personality1.role}
-- Style: {personality1.speaking_style}
-- Traits: {', '.join(personality1.personality_traits[:3])}
-- Typical phrases: {', '.join(host_catchphrases) if host_catchphrases else 'N/A'}
-
-GUEST: {personality2.name}
-- Role: {personality2.role}
-- Style: {personality2.speaking_style}
-- Traits: {', '.join(personality2.personality_traits[:3])}
-- Typical phrases: {', '.join(guest_catchphrases) if guest_catchphrases else 'N/A'}
-
-Topic: {topic.description}
-
-CONVERSATION STYLE: {conversation_style['description']}
-GUEST'S PURPOSE: {conversation_style['purpose']}
-
-CHARACTER-SPECIFIC COMEDY RULES FOR {personality2.name}:
-{self._get_character_comedy_rules(personality2)}
-
-COMEDY STRUCTURE (MANDATORY):
-1. SETUP - Guest presents a ridiculous premise
-2. ESCALATION - Each response makes it more absurd
-3. TWIST/CALLBACK - Unexpected element or callback to earlier joke
-4. PAYOFF - Host's sarcastic reality check as punchline
-
-MANDATORY FORMAT:
-- 6-8 lines total of escalating comedy dialogue
-- HOST's first line MUST clearly introduce: "Welcome to [show name/context], I'm [HOST NAME], and joining me is [GUEST NAME] to discuss [TOPIC]"
-- Make it crystal clear this is a radio show segment for new listeners
-- HOST's last line should naturally wrap up and transition out
-
-COMEDY RULES:
-- Start with ONE specific but BELIEVABLE-SOUNDING product/idea
-- Each line should ADD a logical but flawed detail (build on previous responses)
-- Guest should sound confident but miss obvious problems
-- Host should point out practical issues with deadpan logic
-- Use RELATABLE scenarios that listeners can picture
-- Keep the core concept simple - add complexity through conversation
-- Focus on WHY something won't work rather than WHAT is impossible
-- Make it feel like a real pitch meeting gone wrong
-
-AVOID:
-- Vague descriptions ("amazing invention")
-- Repeating the same joke in different words
-- Generic enthusiasm without specific details
-- Conversations that don't escalate in absurdity
-- ANY formatting like **bold**, *italics*, markdown, or special characters
-- Use ONLY plain text - this will be read aloud by text-to-speech
-
-Example IMPROVED structure:
-{personality1.name}: Welcome to Late Night Radio Chaos! I'm {personality1.name}, and joining me today is {personality2.name} to discuss new food delivery ideas.
-{personality2.name}: Chuck, I'm launching a subscription service for pre-chewed food. Saves customers time!
-{personality1.name}: Pre-chewed food. So people pay you to... chew their meals for them?
-{personality2.name}: Exactly! We handle all the hard work. Premium plan includes garlic bread pre-chewed by certified sommeliers.
-{personality1.name}: I'm trying to imagine the health department's reaction to professional food chewers.
-{personality2.name}: That's why we're based offshore! International waters, no regulations. Plus, we're carbon neutral.
-{personality1.name}: How is saliva-soaked food carbon neutral?
-{personality2.name}: No cooking required! Room temperature delivery in biodegradable spit cups.
-{personality1.name}: Well folks, I think we've explored enough alternative dining tonight. Thanks for tuning in."""
+        # Generate prompt using template engine
+        prompt = self.template_engine.render_conversation_prompt(
+            suggested_style,
+            personality1,  # host
+            personality2,  # guest
+            topic
+        )
 
         # Generate the conversation content
         conversation_content = self._call_openrouter_api(prompt)
@@ -156,7 +108,7 @@ Example IMPROVED structure:
         conversation_content = self._clean_formatting(conversation_content)
 
         # Store the conversation style for logging (accessible to API routes)
-        self.last_conversation_style = conversation_style
+        self.last_conversation_style = self.template_engine.get_style_info(suggested_style)
 
         return conversation_content
 
@@ -357,7 +309,21 @@ Example IMPROVED structure:
             response = requests.post(url, headers=headers, json=data, timeout=30)
             response.raise_for_status()
             result = response.json()
-            return result['choices'][0]['message']['content'].strip()
+
+            content = result['choices'][0]['message']['content'].strip()
+
+            # Debug: Check if response was truncated
+            finish_reason = result['choices'][0].get('finish_reason', 'unknown')
+            print(f"[CONTENT] API Response:")
+            print(f"  - Content length: {len(content)} characters")
+            print(f"  - Finish reason: {finish_reason}")
+            print(f"  - Content preview: {content[:100]}...")
+
+            if finish_reason == 'length':
+                print(f"[CONTENT] WARNING: Response was truncated due to max_tokens limit")
+
+            return content
+
         except Exception as e:
             print(f"[CONTENT] OpenRouter API error: {e}")
             return f"Well folks, looks like our content generator is having a coffee break. Technical difficulties!"

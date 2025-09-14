@@ -6,12 +6,14 @@ Handles TTS generation and voice configuration for radio personalities.
 import os
 import time
 from pathlib import Path
+from typing import Optional
 import torch
 import torchaudio as ta
 import numpy as np
 import soundfile as sf
 from chatterbox.tts import ChatterboxTTS
 from scripts.radio_effects_working import apply_radio_effects
+from src.voice.conversation_tts import ConversationTTSHandler
 
 
 class VoiceManager:
@@ -31,6 +33,9 @@ class VoiceManager:
 
         # Build voice mapping
         self.voice_mapping = self._build_voice_mapping()
+
+        # Initialize conversation TTS handler
+        self.conversation_handler = ConversationTTSHandler(self)
 
     def _build_voice_mapping(self):
         """Build dynamic voice mapping from available voice files and personality roles"""
@@ -137,7 +142,8 @@ class VoiceManager:
             voice_config = self.voice_mapping["host"]
 
         print(f"[VOICE] Generating TTS for {'personality: ' + personality_name if personality_name else 'default'}")
-        print(f"[VOICE] Text: {text[:50]}{'...' if len(text) > 50 else ''}")
+        print(f"[VOICE] Text: {text[:100]}{'...' if len(text) > 100 else ''}")
+        print(f"[VOICE] Full text length: {len(text)} characters")
         print(f"[VOICE] TTS Settings:")
         print(f"  - Voice file: {voice_config['voice_file']}")
         print(f"  - Exaggeration: {voice_config['exaggeration']}")
@@ -285,3 +291,9 @@ class VoiceManager:
         except Exception as e:
             print(f"[VOICE] Error stitching audio segments: {e}")
             return None
+
+    def generate_conversation_tts(self, conversation_text: str, host_personality: str, guest_personality: str) -> Optional[str]:
+        """Generate multi-voice TTS for a conversation between two personalities"""
+        return self.conversation_handler.generate_conversation_audio(
+            conversation_text, host_personality, guest_personality
+        )

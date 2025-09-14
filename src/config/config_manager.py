@@ -81,6 +81,22 @@ class ConfigManager:
                 "window_size": [800, 600],
                 "theme": "default",
                 "auto_refresh_interval": 2000
+            },
+            "youtube_music": {
+                "api_base_url": "http://localhost:9863",
+                "auth_id": "default",
+                "check_interval": 1.0
+            },
+            "radio_server": {
+                "host": "localhost",
+                "port": 5000
+            },
+            "ad_generation": {
+                "generation_timeout": 45
+            },
+            "ad_break": {
+                "enabled": True,
+                "play_audio": True
             }
         }
 
