@@ -1,16 +1,16 @@
 """Configuration Management System
 
-Handles loading and managing radio server configuration from YAML files.
+Handles loading and managing radio server configuration from JSON files.
 """
 
+import json
 import os
-import yaml
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 
 class ConfigManager:
-    def __init__(self, config_file: str = "config/radio_config.yaml"):
+    def __init__(self, config_file: str = "config.json"):
         self.config_file = Path(config_file)
         if not self.config_file.is_absolute():
             self.config_file = Path.cwd() / self.config_file
@@ -19,7 +19,7 @@ class ConfigManager:
         self._validate_config()
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from YAML file"""
+        """Load configuration from JSON file"""
         if not self.config_file.exists():
             print(f"[CONFIG] Config file not found: {self.config_file}")
             print("[CONFIG] Using default configuration")
@@ -27,7 +27,7 @@ class ConfigManager:
 
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
+                config = json.load(f)
                 print(f"[CONFIG] Loaded configuration from {self.config_file}")
                 return config
         except Exception as e:
@@ -44,7 +44,7 @@ class ConfigManager:
                 "debug": True
             },
             "content": {
-                "max_tokens": 300,
+                "max_tokens": 2500,
                 "temperature": 0.7,
                 "model": "moonshotai/kimi-k2-0905"
             },

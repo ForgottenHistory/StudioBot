@@ -11,7 +11,7 @@ import torchaudio as ta
 import numpy as np
 import soundfile as sf
 from chatterbox.tts import ChatterboxTTS
-from radio_effects_working import apply_radio_effects
+from scripts.radio_effects_working import apply_radio_effects
 
 
 class VoiceManager:

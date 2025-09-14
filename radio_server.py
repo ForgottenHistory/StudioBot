@@ -93,8 +93,8 @@ Make it sound like a real radio ad but completely ridiculous. No special charact
             "messages": [
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 150,
-            "temperature": 0.6
+            "max_tokens": 2500,
+            "temperature": 0.5
         }
 
         try:
@@ -145,12 +145,12 @@ Make it sound like a real radio DJ transition into an ad break. No special chara
         }
 
         data = {
-            "model": "anthropic/claude-3-haiku",
+            "model": "moonshotai/kimi-k2-0905",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
             "max_tokens": 200,
-            "temperature": 0.7
+            "temperature": 0.5
         }
 
         try:

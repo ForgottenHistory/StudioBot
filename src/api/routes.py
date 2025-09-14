@@ -183,6 +183,10 @@ def create_app():
                 host, guest, topic
             )
 
+            # Get conversation style for logging
+            conversation_style = getattr(radio_server.content_generator, 'last_conversation_style', {})
+            style_info = f"{conversation_style.get('type', 'unknown')} - {conversation_style.get('description', 'N/A')}"
+
             # Log the generation
             radio_server.log_generation(
                 "dynamic_conversation",
@@ -190,6 +194,7 @@ def create_app():
                 host=host.name,
                 guest=guest.name,
                 topic=topic.theme,
+                conversation_style=style_info,
                 request_type="api_manual"
             )
 

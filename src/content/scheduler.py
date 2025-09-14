@@ -121,12 +121,17 @@ class RadioScheduler:
 
             # Log using radio server logging system
             if self.radio_server and hasattr(self.radio_server, 'log_generation'):
+                # Get conversation style for logging
+                conversation_style = getattr(self.content_generator, 'last_conversation_style', {})
+                style_info = f"{conversation_style.get('type', 'unknown')} - {conversation_style.get('description', 'N/A')}"
+
                 self.radio_server.log_generation(
                     "scheduled_conversation",
                     conversation_content,
                     host=host.name,
                     guest=guest.name,
                     topic=topic.theme,
+                    conversation_style=style_info,
                     request_type="scheduler_automatic"
                 )
 
