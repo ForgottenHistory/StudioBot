@@ -34,7 +34,7 @@ class ConversationTTSHandler:
             speaker_patterns = [
                 r'^HOST:\s*(.+)',
                 r'^GUEST:\s*(.+)',
-                r'^([A-Z][a-zA-Z\s]+):\s*(.+)',  # "Name: text" (personality names with colon)
+                r'^([A-Z][a-zA-Z\s\.]+):\s*(.+)',  # "Name: text" (includes titles like Dr., Mr., etc.)
                 r'^\{\{\w+\}\}\s*[–-]\s*(.+)',  # {{hostname}} – text
                 r'^[A-Z][a-zA-Z\s]*[–-]\s*(.+)'  # Name – text
             ]
@@ -63,23 +63,28 @@ class ConversationTTSHandler:
                     break
 
             if text and role:
+                # Clean stage directions from text for TTS
+                clean_text = self._remove_stage_directions(text)
 
                 segments.append({
                     "role": role,
                     "speaker": role.upper(),
-                    "text": text,  # This is the clean text WITHOUT the name prefix
+                    "text": clean_text,  # This is the clean text WITHOUT name prefix or stage directions
                     "original_line": line  # Keep original for logging purposes
                 })
             else:
                 # If no speaker pattern, treat as continuation of previous speaker
                 if segments:
-                    segments[-1]["text"] += " " + line
+                    # Clean stage directions from continuation text too
+                    clean_continuation = self._remove_stage_directions(line)
+                    segments[-1]["text"] += " " + clean_continuation
                 else:
                     # Default to host if no previous speaker
+                    clean_text = self._remove_stage_directions(line)
                     segments.append({
                         "role": "host",
                         "speaker": "HOST",
-                        "text": line
+                        "text": clean_text
                     })
 
         return segments
@@ -159,3 +164,16 @@ class ConversationTTSHandler:
             import traceback
             traceback.print_exc()
             return None
+
+    def _remove_stage_directions(self, text: str) -> str:
+        """Remove stage directions in brackets from text for cleaner TTS"""
+        import re
+
+        # Remove content in square brackets like [forced baritone], [deadpan], etc.
+        # Also handles nested brackets and various bracket styles
+        cleaned = re.sub(r'\[([^\]]*)\]', '', text)
+
+        # Clean up extra spaces that might be left behind
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+
+        return cleaned

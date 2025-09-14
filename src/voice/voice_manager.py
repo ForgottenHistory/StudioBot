@@ -14,12 +14,14 @@ import soundfile as sf
 from chatterbox.tts import ChatterboxTTS
 from scripts.radio_effects_working import apply_radio_effects
 from src.voice.conversation_tts import ConversationTTSHandler
+from src.audio.jingle_manager import JingleManager
 
 
 class VoiceManager:
-    def __init__(self, content_manager, temp_dir="temp_audio"):
+    def __init__(self, content_manager, config=None, temp_dir="temp_audio"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.content_manager = content_manager
+        self.config = config
 
         # Ensure we use absolute path for temp directory
         self.temp_dir = Path(temp_dir)
@@ -36,6 +38,15 @@ class VoiceManager:
 
         # Initialize conversation TTS handler
         self.conversation_handler = ConversationTTSHandler(self)
+
+        # Initialize jingle manager
+        self.jingle_manager = JingleManager(config) if config else None
+        if self.jingle_manager and self.jingle_manager.enabled:
+            print(f"[VOICE] Jingle system initialized: {len(self.jingle_manager.jingle_files)} jingles loaded")
+        elif config:
+            print(f"[VOICE] Jingle system disabled in config")
+        else:
+            print(f"[VOICE] No config provided for jingle system")
 
     def _build_voice_mapping(self):
         """Build dynamic voice mapping from available voice files and personality roles"""
@@ -227,6 +238,12 @@ class VoiceManager:
                     "custom": False
                 }
 
+        # Jingle system information
+        if self.jingle_manager:
+            info["jingles"] = self.jingle_manager.get_jingle_info()
+        else:
+            info["jingles"] = {"enabled": False}
+
         return info
 
     def stitch_audio_segments(self, audio_segments):
@@ -294,6 +311,30 @@ class VoiceManager:
 
     def generate_conversation_tts(self, conversation_text: str, host_personality: str, guest_personality: str) -> Optional[str]:
         """Generate multi-voice TTS for a conversation between two personalities"""
-        return self.conversation_handler.generate_conversation_audio(
+        # Generate the base conversation audio
+        conversation_audio = self.conversation_handler.generate_conversation_audio(
             conversation_text, host_personality, guest_personality
         )
+
+        # Add jingles if enabled and conversation was successfully generated
+        if conversation_audio and self.jingle_manager and self.jingle_manager.enabled:
+            print(f"[VOICE] Adding jingles to conversation: {conversation_audio}")
+            conversation_with_jingles = self.jingle_manager.add_jingles_to_conversation(
+                conversation_audio, self.temp_dir
+            )
+            if conversation_with_jingles != conversation_audio:
+                print(f"[VOICE] Jingles added successfully: {conversation_with_jingles}")
+            else:
+                print(f"[VOICE] No jingles were added")
+            return conversation_with_jingles
+        else:
+            if not conversation_audio:
+                print(f"[VOICE] No conversation audio to add jingles to")
+            elif not self.jingle_manager:
+                print(f"[VOICE] Jingle manager not initialized")
+            elif not self.jingle_manager.enabled:
+                print(f"[VOICE] Jingle system disabled")
+            else:
+                print(f"[VOICE] Unknown jingle issue")
+
+        return conversation_audio

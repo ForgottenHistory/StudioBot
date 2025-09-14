@@ -272,6 +272,16 @@ Focus on ONE product, make each claim more absurd than the last, end with darkly
         # Remove any remaining asterisks or formatting characters
         text = re.sub(r'[*_`#]', '', text)
 
+        # Remove stage directions and vocal instructions (both bracketed and non-bracketed)
+        # Remove content in brackets like [forced baritone], [deadpan], etc.
+        text = re.sub(r'\[([^\]]*(?:baritone|tenor|deadpan|sarcastic|whisper|shout|laugh|sigh|pause|dramatic|excited|nervous)[^\]]*)\]', '', text, flags=re.IGNORECASE)
+        # Remove common stage directions without brackets
+        text = re.sub(r'\b(?:forced\s+|deep\s+|nervous\s+|excited\s+|sarcastic\s+|deadpan\s+|dramatic\s+)?(?:baritone|tenor|bass|alto|soprano|whisper|shout)\b:?\s*', '', text, flags=re.IGNORECASE)
+        # Remove "flips to" and similar transition phrases (more comprehensive)
+        text = re.sub(r'\b(?:flips\s+to|switches\s+to|becomes\s+more|turns\s+(?:to\s+)?|shifts\s+to)\s*(?:eager|excited|nervous|dramatic|sarcastic|deadpan|enthusiastic|confident|uncertain)\s*(?:baritone|tenor|bass|alto|soprano|tone|voice)?\b:?\s*', '', text, flags=re.IGNORECASE)
+        # Remove standalone vocal descriptors that might be left
+        text = re.sub(r'\b(?:eager|excited|nervous|dramatic|sarcastic|deadpan|enthusiastic|confident|uncertain)\s+(?:baritone|tenor|bass|alto|soprano|tone|voice)\b:?\s*', '', text, flags=re.IGNORECASE)
+
         # Clean up extra spaces but PRESERVE line breaks for dialogue structure
         # Replace multiple spaces with single space, but keep newlines
         text = re.sub(r'[ \t]+', ' ', text)  # Multiple spaces/tabs -> single space

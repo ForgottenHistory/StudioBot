@@ -32,6 +32,7 @@ class RadioServer:
         self.content_manager = ContentManager(paths_config.get('content_dir', 'content'))
         self.voice_manager = VoiceManager(
             self.content_manager,
+            self.config.config,  # Pass the full config for jingle support
             paths_config.get('temp_audio_dir', 'temp_audio')
         )
 
