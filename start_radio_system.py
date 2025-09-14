@@ -99,7 +99,7 @@ class RadioSystemManager:
 
         try:
             process = subprocess.Popen([
-                sys.executable, "radio_server.py"
+                sys.executable, "server.py"
             ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
             self.processes.append(("Radio Server", process))
@@ -116,14 +116,14 @@ class RadioSystemManager:
 
     def start_music_integration(self):
         """Start the music integration"""
-        print("🎵 Starting Music Integration...")
+        print("🎵 Starting YouTube Music Integration...")
 
         try:
             process = subprocess.Popen([
-                sys.executable, "radio_music_integration.py"
+                sys.executable, "youtube_music_integration.py"
             ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-            self.processes.append(("Music Integration", process))
+            self.processes.append(("YouTube Music Integration", process))
             print("✅ Music Integration started")
 
             return process
@@ -223,7 +223,7 @@ class RadioSystemManager:
         # Wait for radio server to be ready
         time.sleep(2)
 
-        # Start music integration
+        # Start YouTube music integration
         music_process = self.start_music_integration()
         if not music_process:
             self.shutdown()
