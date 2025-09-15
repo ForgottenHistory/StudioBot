@@ -23,6 +23,8 @@ def apply_radio_effects(input_file, output_file, style="vintage", strength=0.8):
             processed = apply_super_muffled(audio_data, sample_rate, strength)
         elif style == "telephone_quality":
             processed = apply_telephone_quality(audio_data, sample_rate, strength)
+        elif style == "studio_interview":
+            processed = apply_studio_interview(audio_data, sample_rate, strength)
         else:
             processed = apply_vintage_radio(audio_data, sample_rate, strength)
 
@@ -215,6 +217,98 @@ def apply_digital_effects(audio_data, sample_rate, strength=0.8):
         for i in range(1, len(processed)):
             filtered[i] = alpha * filtered[i-1] + (1 - alpha) * processed[i]
         processed = filtered
+
+    return processed
+
+def apply_studio_interview(audio_data, sample_rate, strength=0.8):
+    """Apply professional studio interview/podcast microphone effect"""
+
+    processed = audio_data.copy()
+
+    if len(processed) < 100:
+        return processed
+
+    print("[RADIO] Applying studio interview processing...")
+
+    # 1. Professional microphone frequency response (wider than radio)
+    fft_size = len(processed)
+    freqs = np.fft.fftfreq(fft_size, 1/sample_rate)
+    audio_fft = np.fft.fft(processed)
+    freq_response = np.ones_like(freqs, dtype=complex)
+
+    # Professional mic frequency range - much wider than radio
+    hp_freq = 80.0   # Low-end rolloff (preserve bass)
+    lp_freq = 12000.0  # High-end rolloff (crisp but not harsh)
+
+    # Presence boost around speech frequencies
+    presence_freq = 3000.0
+    presence_boost = 1.0 + (strength * 0.3)  # Subtle boost
+
+    for i, freq in enumerate(freqs):
+        abs_freq = abs(freq)
+
+        # Gentle high-pass (remove rumble)
+        if abs_freq < hp_freq and abs_freq > 0:
+            rolloff = (abs_freq / hp_freq) ** 0.5  # Gentle slope
+            freq_response[i] *= rolloff
+
+        # Gentle low-pass (remove harsh highs)
+        if abs_freq > lp_freq:
+            rolloff = (lp_freq / abs_freq) ** 1.5  # Gentle slope
+            freq_response[i] *= rolloff
+
+        # Presence boost for speech clarity
+        if 2000 < abs_freq < 4000:
+            boost = 1.0 + (presence_boost - 1.0) * np.exp(-((abs_freq - presence_freq) / 800) ** 2)
+            freq_response[i] *= boost
+
+    # Apply frequency shaping
+    processed_fft = audio_fft * freq_response
+    processed = np.real(np.fft.ifft(processed_fft))
+
+    # 2. Studio-style compression (smooth and musical)
+    threshold = 0.3
+    ratio = 3.0  # Moderate compression
+
+    compressed_mask = np.abs(processed) > threshold
+    if np.any(compressed_mask):
+        over_threshold = processed[compressed_mask]
+        sign = np.sign(over_threshold)
+        magnitude = np.abs(over_threshold)
+        # Musical compression curve
+        compressed_magnitude = threshold + (magnitude - threshold) / ratio
+        processed[compressed_mask] = sign * compressed_magnitude
+
+    # 3. Subtle tube-style warmth (less than radio)
+    warmth = strength * 0.15  # Much subtler than radio
+    processed = np.tanh(processed * (1 + warmth)) / (1 + warmth)
+
+    # 4. Studio reverb simulation (very subtle room tone)
+    if len(processed) > sample_rate // 10:  # Only if audio is long enough
+        reverb_strength = strength * 0.1  # Very subtle
+        delay_samples = int(sample_rate * 0.02)  # 20ms early reflection
+
+        if delay_samples < len(processed):
+            reverb = np.zeros_like(processed)
+            reverb[delay_samples:] = processed[:-delay_samples] * reverb_strength
+            processed = processed + reverb
+
+    # 5. Gentle de-essing (reduce harsh S sounds)
+    if sample_rate > 8000:  # Only for high quality audio
+        # High-frequency gentle compression
+        de_ess_freq = 6000.0
+        fft_size = len(processed)
+        freqs = np.fft.fftfreq(fft_size, 1/sample_rate)
+        audio_fft = np.fft.fft(processed)
+
+        for i, freq in enumerate(freqs):
+            abs_freq = abs(freq)
+            if abs_freq > de_ess_freq:
+                # Gentle compression of sibilants
+                de_ess_factor = 0.8 + (0.2 * (1 - strength))
+                audio_fft[i] *= de_ess_factor
+
+        processed = np.real(np.fft.ifft(audio_fft))
 
     return processed
 

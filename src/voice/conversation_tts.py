@@ -92,8 +92,9 @@ class ConversationTTSHandler:
     def generate_conversation_audio(self,
                                   conversation_text: str,
                                   host_personality: str,
-                                  guest_personality: str) -> Optional[str]:
-        """Generate multi-voice audio for a conversation"""
+                                  guest_personality: str,
+                                  audio_effect: str = "vintage_radio") -> Optional[str]:
+        """Generate multi-voice audio for a conversation with specified audio effect"""
 
         try:
             # Parse conversation into segments
@@ -118,9 +119,13 @@ class ConversationTTSHandler:
 
                 logger.info(f"[CONVERSATION TTS] Generating segment {i+1}/{len(segments)} ({segment['role']}: {personality})")
 
-                # Generate TTS for this segment
+                # Generate TTS for this segment with specified audio effect
+                voice_config = self.voice_manager.get_personality_voice_config(personality)
+                voice_config["radio_effect"] = audio_effect
+
                 audio_file = self.voice_manager.generate_tts_audio(
                     segment["text"],
+                    voice_config=voice_config,
                     personality_name=personality
                 )
 

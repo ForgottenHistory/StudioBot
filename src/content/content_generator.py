@@ -1,14 +1,15 @@
 """Dynamic Content Generator
 
-Handles generating ads and conversations using OpenRouter API.
+Handles generating content using OpenRouter API with generic content type system.
 """
 
 import random
 import requests
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from src.content.content_manager import Topic, Personality, ContentManager
 from src.content.template_engine import TemplateEngine
+from src.content.content_types import content_type_registry, ContentGenerationParams
 
 
 class DynamicContentGenerator:
@@ -111,6 +112,83 @@ Focus on ONE product, make each claim more absurd than the last, end with darkly
         self.last_conversation_style = self.template_engine.get_style_info(suggested_style)
 
         return conversation_content
+
+    def generate_track_transition_ad(self, current_track: dict, time_remaining: int = 0) -> str:
+        """Generate an ad based on current music track context"""
+        track_title = current_track.get('title', 'Unknown')
+        track_artist = current_track.get('artist', 'Unknown Artist')
+
+        print(f"[CONTENT] === GENERATING TRACK TRANSITION AD ===")
+        print(f"[CONTENT] Track: {track_artist} - {track_title}")
+        print(f"[CONTENT] Time remaining: {time_remaining}s")
+
+        # Create a prompt that references the current track
+        prompt = f"""Create a HILARIOUS satirical GTA-style radio advertisement that makes a clever reference to the song that just played: "{track_title}" by {track_artist}.
+
+COMEDY STRUCTURE:
+1. HOOK - Reference the song/artist naturally in the opening
+2. SOLUTION - Introduce ridiculous product with specific name
+3. ESCALATION - Add absurd features/benefits with specific numbers
+4. DISCLAIMER - Rapid-fire funny side effects or warnings
+
+COMEDY RULES:
+- NATURALLY reference the song title or artist name in the ad
+- ONE specific product with exact name (not "amazing device")
+- SPECIFIC numbers, prices, percentages for absurdity
+- ESCALATING claims that get more ridiculous
+- PHYSICAL comedy elements (visual absurdity)
+- CORPORATE doublespeak mixed with obvious lies
+- FAST PACING like real ads but increasingly unhinged
+
+LENGTH: 50-70 words max for radio timing
+
+EXAMPLE GOOD STRUCTURE:
+"Speaking of {track_title}, tired of regular furniture? Try MegaCorp's Exploding Couch! Guaranteed to launch you 15 feet in the air every time you sit down! Now with optional parachute attachment for only $299.99 extra! Warning: Not responsible for ceiling damage, broken bones, or sudden understanding of physics. MegaCorp - Because safety is optional!"
+
+Focus on ONE product, make each claim more absurd than the last, end with darkly funny disclaimer."""
+
+        ad_content = self._call_openrouter_api(prompt)
+        return self._clean_formatting(ad_content)
+
+    def generate_ad_content(self, topic: str = None, personality: str = None) -> str:
+        """Generate general ad content for API compatibility"""
+        # If we have a topic, try to find it in our content manager
+        topic_obj = None
+        if topic and topic != 'general':
+            topic_obj = self.content_manager.topics.get(topic)
+
+        return self.generate_themed_ad(topic_obj)
+
+    def generate_content(self, content_type_name: str, params: ContentGenerationParams = None) -> str:
+        """Generate content using the generic content type system"""
+        if params is None:
+            params = ContentGenerationParams()
+
+        # Get content type
+        content_type = content_type_registry.get(content_type_name)
+        if not content_type:
+            raise ValueError(f"Unknown content type: {content_type_name}")
+
+        print(f"[CONTENT] === GENERATING {content_type.display_name.upper()} ===")
+
+        # Validate parameters
+        if not content_type.validate_params(params):
+            raise ValueError(f"Invalid parameters for content type: {content_type_name}")
+
+        # Generate prompt
+        prompt = content_type.generate_prompt(params, self.content_manager, self.config)
+
+        # Generate content via LLM
+        raw_content = self._call_openrouter_api(prompt)
+
+        # Post-process content
+        processed_content = content_type.process_generated_content(raw_content, params)
+
+        return processed_content
+
+    def get_content_types(self) -> Dict[str, Dict[str, str]]:
+        """Get all available content types"""
+        return content_type_registry.get_types_dict()
 
     def _get_character_comedy_rules(self, personality):
         """Get character-specific comedy rules based on personality traits and role"""

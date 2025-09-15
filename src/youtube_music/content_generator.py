@@ -81,31 +81,25 @@ class ContentGenerator:
             conversation_response = await self.call_conversation_api()
 
             if conversation_response and conversation_response.get('success'):
-                # Now generate audio for the conversation using custom TTS
+                # Use the conversation audio that was already generated
                 content = conversation_response.get('content', '')
                 host = conversation_response.get('host', 'Host')
                 guest = conversation_response.get('guest', 'Guest')
+                audio_url = conversation_response.get('audio_url', '')
 
-                # Add track transition intro
-                transition_intro = f"That was '{track_info['title']}' by {track_info['artist']}! "
-                conversation_with_intro = transition_intro + content
-
-                # Generate TTS audio for the complete conversation
-                audio_response = await self.call_conversation_tts_api(conversation_with_intro, host)
-
-                if audio_response and audio_response.get('success'):
-                    logger.info("✅ Conversation pre-generated successfully")
+                if audio_url:
+                    logger.info("✅ Conversation pre-generated successfully (using generated audio)")
                     return {
                         "content_type": "conversation",
-                        "audio_url": audio_response.get('audio_url', ''),
-                        "content": conversation_with_intro,
+                        "audio_url": audio_url,
+                        "content": content,
                         "host": host,
                         "guest": guest,
                         "generated_at": datetime.now().isoformat(),
                         "track_context": track_info
                     }
                 else:
-                    logger.error("❌ Conversation audio generation failed")
+                    logger.error("❌ Conversation audio generation failed - no audio URL")
                     return None
             else:
                 logger.error("❌ Conversation generation failed")
@@ -354,7 +348,7 @@ class ContentGenerator:
     async def call_radio_server_api(self, ad_context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Call the radio server API to generate ad"""
         try:
-            url = f"http://{self.radio_host}:{self.radio_port}/generate_ad"
+            url = f"http://{self.radio_host}:{self.radio_port}/generate/generate_ad"
 
             timeout = aiohttp.ClientTimeout(total=self.generation_timeout)
             async with aiohttp.ClientSession(timeout=timeout) as session:

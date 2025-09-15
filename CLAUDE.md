@@ -31,7 +31,7 @@ StudioBot/
 ├── 📁 temp_audio/                  # Generated audio files (auto-managed)
 ├── 📁 logs/                        # Application logs
 ├── 📁 frontend/                    # React web interface
-├── radio_music_integration.py      # **MAIN**: YouTube Music integration
+├── youtube_music_integration.py    # **MAIN**: YouTube Music integration
 ├── server.py                      # Flask server entry point (preferred)
 ├── start_radio_system.py          # Complete system startup script
 └── config.json                   # Main configuration file
@@ -54,7 +54,7 @@ python start_radio_system.py
 # - Start Flask server only
 python server.py
 # - Start YouTube Music integration only
-python radio_music_integration.py
+python youtube_music_integration.py
 
 # Run tests
 python tests/test_enhanced_system.py
@@ -92,7 +92,7 @@ npm run preview
 
 ### Core Components
 
-**radio_music_integration.py**: **Primary system** - YouTube Music integration
+**youtube_music_integration.py**: **Primary system** - YouTube Music integration
 - Real-time song monitoring with natural transition detection
 - 50/50 random chance for ads vs conversations during song transitions
 - Volume matching between music and generated content

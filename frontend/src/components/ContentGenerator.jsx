@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Radio,
   MessageSquare,
@@ -6,88 +6,108 @@ import {
   Download,
   Loader2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Mic,
+  Users,
+  Zap
 } from 'lucide-react';
 
 const ContentGenerator = ({
   topics,
   personalities,
-  generateAd,
-  generateConversation,
-  generateConversationWithAudio,
   playAudio
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState([]);
+  const [contentTypes, setContentTypes] = useState({});
+  const [selectedContentType, setSelectedContentType] = useState('ad');
 
-  // Ad generation state
-  const [adParams, setAdParams] = useState({
+  // Generic content parameters
+  const [contentParams, setContentParams] = useState({
+    content_type: 'ad',
     topic: '',
-    personality: ''
+    personalities: [],
+    custom_params: {}
   });
 
-  // Conversation generation state
-  const [convParams, setConvParams] = useState({
-    host: '',
-    guest: '',
-    topic: ''
-  });
-
-  const handleGenerateAd = async () => {
-    setIsGenerating(true);
-    const result = await generateAd(adParams);
-
-    const newResult = {
-      id: Date.now(),
-      type: 'ad',
-      timestamp: new Date().toLocaleTimeString(),
-      params: { ...adParams },
-      ...result
+  // Load available content types
+  useEffect(() => {
+    const fetchContentTypes = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/generate/content_types');
+        const data = await response.json();
+        if (data.success) {
+          setContentTypes(data.content_types);
+          // Set first available type as default
+          const firstType = Object.keys(data.content_types)[0];
+          if (firstType) {
+            setSelectedContentType(firstType);
+            setContentParams(prev => ({ ...prev, content_type: firstType }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching content types:', error);
+      }
     };
 
-    setResults(prev => [newResult, ...prev]);
-    setIsGenerating(false);
+    fetchContentTypes();
+  }, []);
 
-    // Reset form
-    setAdParams({ topic: '', personality: '' });
+  const handleGenerateContent = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch('http://localhost:5000/generate/content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contentParams),
+      });
+
+      const result = await response.json();
+
+      const newResult = {
+        id: Date.now(),
+        type: selectedContentType,
+        timestamp: new Date().toLocaleTimeString(),
+        params: { ...contentParams },
+        success: result.success,
+        data: result.success ? result : null,
+        error: result.success ? null : result.error
+      };
+
+      setResults(prev => [newResult, ...prev]);
+
+      // Reset form
+      setContentParams({
+        content_type: selectedContentType,
+        topic: '',
+        personalities: [],
+        custom_params: {}
+      });
+
+    } catch (error) {
+      const newResult = {
+        id: Date.now(),
+        type: selectedContentType,
+        timestamp: new Date().toLocaleTimeString(),
+        params: { ...contentParams },
+        success: false,
+        error: error.message
+      };
+      setResults(prev => [newResult, ...prev]);
+    }
+    setIsGenerating(false);
   };
 
-  const handleGenerateConversation = async () => {
-    setIsGenerating(true);
-    const result = await generateConversation(convParams);
-
-    const newResult = {
-      id: Date.now(),
-      type: 'conversation',
-      timestamp: new Date().toLocaleTimeString(),
-      params: { ...convParams },
-      ...result
-    };
-
-    setResults(prev => [newResult, ...prev]);
-    setIsGenerating(false);
-
-    // Reset form
-    setConvParams({ host: '', guest: '', topic: '' });
-  };
-
-  const handleGenerateConversationWithAudio = async () => {
-    setIsGenerating(true);
-    const result = await generateConversationWithAudio(convParams);
-
-    const newResult = {
-      id: Date.now(),
-      type: 'conversation_with_audio',
-      timestamp: new Date().toLocaleTimeString(),
-      params: { ...convParams },
-      ...result
-    };
-
-    setResults(prev => [newResult, ...prev]);
-    setIsGenerating(false);
-
-    // Reset form
-    setConvParams({ host: '', guest: '', topic: '' });
+  const handleContentTypeChange = (newType) => {
+    setSelectedContentType(newType);
+    setContentParams({
+      content_type: newType,
+      topic: '',
+      personalities: [],
+      custom_params: {}
+    });
   };
 
   const handlePlayAudio = (audioUrl) => {
@@ -97,127 +117,81 @@ const ContentGenerator = ({
   };
 
   const topicOptions = Object.keys(topics);
-  const personalityOptions = Object.values(personalities).map(p => p.name);
+  const personalityOptions = Object.entries(personalities).map(([key, p]) => ({
+    key: key,
+    name: p.name
+  }));
+
+  // Get icon for content type
+  const getContentTypeIcon = (type) => {
+    switch (type) {
+      case 'ad':
+        return <Radio className="h-5 w-5" />;
+      case 'conversation':
+        return <MessageSquare className="h-5 w-5" />;
+      case 'studio_interview':
+        return <Mic className="h-5 w-5" />;
+      default:
+        return <Zap className="h-5 w-5" />;
+    }
+  };
+
+  // Get button color for content type
+  const getContentTypeColor = (type) => {
+    switch (type) {
+      case 'ad':
+        return 'bg-blue-600 hover:bg-blue-700';
+      case 'conversation':
+        return 'bg-green-600 hover:bg-green-700';
+      case 'studio_interview':
+        return 'bg-purple-600 hover:bg-purple-700';
+      default:
+        return 'bg-gray-600 hover:bg-gray-700';
+    }
+  };
+
+  // Check if content type needs multiple personalities
+  const needsMultiplePersonalities = (type) => {
+    return type === 'conversation' || type === 'studio_interview';
+  };
 
   return (
     <div className="space-y-6">
-      {/* Ad Generation */}
+      {/* Content Generation */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Radio className="h-5 w-5" />
-          Generate Advertisement
+        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+          <Zap className="h-5 w-5" />
+          Generate Radio Content
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Topic (optional)
-            </label>
-            <select
-              value={adParams.topic}
-              onChange={(e) => setAdParams(prev => ({ ...prev, topic: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
-            >
-              <option value="">Random Topic</option>
-              {topicOptions.map(topic => (
-                <option key={topic} value={topic}>
-                  {topics[topic]?.theme || topic}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Personality (optional)
-            </label>
-            <select
-              value={adParams.personality}
-              onChange={(e) => setAdParams(prev => ({ ...prev, personality: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
-            >
-              <option value="">Random Personality</option>
-              {personalityOptions.map(name => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={handleGenerateAd}
-              disabled={isGenerating}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Radio className="h-4 w-4" />
-                  Generate Ad
-                </>
-              )}
-            </button>
-          </div>
+        {/* Content Type Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Content Type
+          </label>
+          <select
+            value={selectedContentType}
+            onChange={(e) => handleContentTypeChange(e.target.value)}
+            className="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
+          >
+            {Object.entries(contentTypes).map(([key, type]) => (
+              <option key={key} value={key}>
+                {type.display_name} - {type.description}
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
 
-      {/* Conversation Generation */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          Generate Conversation
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Host (optional)
-            </label>
-            <select
-              value={convParams.host}
-              onChange={(e) => setConvParams(prev => ({ ...prev, host: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
-            >
-              <option value="">Auto Select Host</option>
-              {personalityOptions.map(name => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Guest (optional)
-            </label>
-            <select
-              value={convParams.guest}
-              onChange={(e) => setConvParams(prev => ({ ...prev, guest: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
-            >
-              <option value="">Auto Select Guest</option>
-              {personalityOptions.map(name => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
+        {/* Dynamic Form Fields */}
+        <div className="grid grid-cols-1 gap-4 mb-6">
+          {/* Topic Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Topic (optional)
             </label>
             <select
-              value={convParams.topic}
-              onChange={(e) => setConvParams(prev => ({ ...prev, topic: e.target.value }))}
+              value={contentParams.topic}
+              onChange={(e) => setContentParams(prev => ({ ...prev, topic: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
             >
               <option value="">Random Topic</option>
@@ -229,42 +203,116 @@ const ContentGenerator = ({
             </select>
           </div>
 
-          <div className="flex items-end gap-2">
-            <button
-              onClick={handleGenerateConversation}
-              disabled={isGenerating}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="h-4 w-4" />
-                  Generate Text
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleGenerateConversationWithAudio}
-              disabled={isGenerating}
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Generate with Audio
-                </>
-              )}
-            </button>
+          {/* Personality Selection */}
+          {needsMultiplePersonalities(selectedContentType) ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {selectedContentType === 'studio_interview' ? 'Interviewer' : 'Host'} (optional)
+                </label>
+                <select
+                  value={contentParams.personalities[0] || ''}
+                  onChange={(e) => {
+                    const newPersonalities = [...contentParams.personalities];
+                    newPersonalities[0] = e.target.value;
+                    setContentParams(prev => ({ ...prev, personalities: newPersonalities }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
+                >
+                  <option value="">Auto Select</option>
+                  {personalityOptions.map(p => (
+                    <option key={p.key} value={p.key}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {selectedContentType === 'studio_interview' ? 'Interviewee' : 'Guest'} (optional)
+                </label>
+                <select
+                  value={contentParams.personalities[1] || ''}
+                  onChange={(e) => {
+                    const newPersonalities = [...contentParams.personalities];
+                    newPersonalities[1] = e.target.value;
+                    setContentParams(prev => ({ ...prev, personalities: newPersonalities }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
+                >
+                  <option value="">Auto Select</option>
+                  {personalityOptions.map(p => (
+                    <option key={p.key} value={p.key}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Personality (optional)
+              </label>
+              <select
+                value={contentParams.personalities[0] || ''}
+                onChange={(e) => {
+                  const newPersonalities = e.target.value ? [e.target.value] : [];
+                  setContentParams(prev => ({ ...prev, personalities: newPersonalities }));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
+              >
+                <option value="">Auto Select</option>
+                {personalityOptions.map(p => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Content Type Description */}
+        {contentTypes[selectedContentType] && (
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+            <div className="flex items-center gap-2 mb-2">
+              {getContentTypeIcon(selectedContentType)}
+              <h3 className="font-medium text-gray-900">
+                {contentTypes[selectedContentType].display_name}
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              {contentTypes[selectedContentType].description}
+            </p>
+            {selectedContentType === 'studio_interview' && (
+              <p className="text-xs text-purple-600 mt-1">
+                ✨ Uses professional studio audio effects for high-quality sound
+              </p>
+            )}
           </div>
+        )}
+
+        {/* Generate Button */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleGenerateContent}
+            disabled={isGenerating}
+            className={`px-8 py-3 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 min-w-48 ${getContentTypeColor(selectedContentType)}`}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                {getContentTypeIcon(selectedContentType)}
+                Generate {contentTypes[selectedContentType]?.display_name || 'Content'}
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -274,7 +322,7 @@ const ContentGenerator = ({
 
         {results.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
-            No content generated yet. Use the forms above to generate ads or conversations.
+            No content generated yet. Select a content type and generate some radio content above.
           </p>
         ) : (
           <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -292,9 +340,9 @@ const ContentGenerator = ({
                     ) : (
                       <AlertCircle className="h-5 w-5 text-red-600" />
                     )}
+                    {getContentTypeIcon(result.type)}
                     <span className="font-medium text-gray-900">
-                      {result.type === 'ad' ? 'Advertisement' :
-                       result.type === 'conversation_with_audio' ? 'Conversation with Audio' : 'Conversation'} - {result.timestamp}
+                      {contentTypes[result.type]?.display_name || result.type} - {result.timestamp}
                     </span>
                   </div>
 
@@ -303,7 +351,7 @@ const ContentGenerator = ({
                       <button
                         onClick={() => handlePlayAudio(result.data.audio_url)}
                         className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
-                        title={result.type === 'conversation_with_audio' ? 'Play Complete Conversation' : 'Play Audio'}
+                        title="Play Audio"
                       >
                         <Play className="h-4 w-4" />
                       </button>
@@ -311,7 +359,7 @@ const ContentGenerator = ({
                         href={`http://localhost:5000${result.data.audio_url}`}
                         download
                         className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
-                        title={result.type === 'conversation_with_audio' ? 'Download Complete Conversation' : 'Download Audio'}
+                        title="Download Audio"
                       >
                         <Download className="h-4 w-4" />
                       </a>
@@ -322,40 +370,38 @@ const ContentGenerator = ({
                 {result.success ? (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2 text-sm text-gray-600">
-                      {result.type === 'ad' && (
+                      <span>Topic: {result.data.topic || 'Random'}</span>
+                      {result.data.personalities && result.data.personalities.length > 0 && (
                         <>
-                          <span>Topic: {result.data.topic || 'Random'}</span>
                           <span>•</span>
-                          <span>Personality: {result.data.personality}</span>
+                          <span>Personalities: {result.data.personalities.join(', ')}</span>
                         </>
                       )}
-                      {result.type === 'conversation' && (
+                      {result.data.content_type && (
                         <>
-                          <span>Host: {result.data.host}</span>
                           <span>•</span>
-                          <span>Guest: {result.data.guest}</span>
-                          <span>•</span>
-                          <span>Topic: {result.data.topic}</span>
+                          <span>Type: {contentTypes[result.data.content_type]?.display_name || result.data.content_type}</span>
                         </>
                       )}
                     </div>
+
                     <div className="bg-white p-3 rounded border text-sm">
                       <pre className="whitespace-pre-wrap font-mono text-gray-800">
                         {result.data.content}
                       </pre>
                     </div>
 
-                    {/* Complete conversation audio info for conversations with audio */}
-                    {result.type === 'conversation_with_audio' && result.data.audio_url && (
+                    {/* Special highlighting for studio interviews */}
+                    {result.type === 'studio_interview' && result.data.audio_url && (
                       <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Play className="h-4 w-4 text-purple-600" />
+                            <Mic className="h-4 w-4 text-purple-600" />
                             <span className="text-sm font-medium text-purple-800">
-                              Complete Conversation Audio
+                              Professional Studio Quality Audio
                             </span>
                             <span className="text-xs text-purple-600">
-                              (All segments stitched together)
+                              ✨ Enhanced for interviews
                             </span>
                           </div>
                           <div className="flex gap-2">
@@ -364,7 +410,7 @@ const ContentGenerator = ({
                               className="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors flex items-center gap-1"
                             >
                               <Play className="h-3 w-3" />
-                              Play Full
+                              Play Interview
                             </button>
                             <a
                               href={`http://localhost:5000${result.data.audio_url}`}
@@ -375,39 +421,6 @@ const ContentGenerator = ({
                               Download
                             </a>
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Audio segments for conversations with audio */}
-                    {result.data.audio_segments && result.data.audio_segments.length > 0 && (
-                      <div className="mt-3">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Audio Segments:</h4>
-                        <div className="space-y-2">
-                          {result.data.audio_segments.map((segment, index) => (
-                            <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
-                              <span className="text-sm font-medium text-gray-600 min-w-0 flex-1">
-                                {segment.speaker}: {segment.text.slice(0, 50)}...
-                              </span>
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => handlePlayAudio(segment.audio_url)}
-                                  className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
-                                  title={`Play ${segment.speaker}'s line`}
-                                >
-                                  <Play className="h-3 w-3" />
-                                </button>
-                                <a
-                                  href={`http://localhost:5000${segment.audio_url}`}
-                                  download
-                                  className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
-                                  title="Download segment"
-                                >
-                                  <Download className="h-3 w-3" />
-                                </a>
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       </div>
                     )}

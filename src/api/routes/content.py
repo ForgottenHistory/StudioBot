@@ -71,7 +71,11 @@ def init_content_routes(radio_server):
             return jsonify({"error": "Invalid filename"}), 400
 
         audio_dir = radio_server.config.get('paths.temp_audio_dir', 'temp_audio')
-        file_path = Path(audio_dir) / filename
+        # Ensure we use absolute path
+        if not Path(audio_dir).is_absolute():
+            file_path = Path.cwd() / audio_dir / filename
+        else:
+            file_path = Path(audio_dir) / filename
 
         if file_path.exists() and file_path.is_file():
             return send_file(file_path, mimetype='audio/wav')

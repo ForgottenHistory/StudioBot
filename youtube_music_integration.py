@@ -18,6 +18,7 @@ if os.name == 'nt':
 from src.config.config_manager import ConfigManager
 from src.youtube_music.monitor import YouTubeMusicMonitor
 from src.youtube_music.content_generator import ContentGenerator
+from src.youtube_music.content_queue import ContentQueue
 
 # Set up logging with UTF-8 support
 class UTF8StreamHandler(logging.StreamHandler):
@@ -49,6 +50,7 @@ class YouTubeMusicIntegration:
     def __init__(self, config_file: str = "config.json"):
         self.config = ConfigManager(config_file)
         self.content_generator = ContentGenerator(self.config)
+        self.content_queue = ContentQueue(self.content_generator, self.config)
         self.monitor = YouTubeMusicMonitor(
             self.config,
             on_track_change=self.handle_song_switch
@@ -56,20 +58,27 @@ class YouTubeMusicIntegration:
 
         # Connect components
         self.content_generator.youtube_music_monitor = self.monitor
-        self.monitor.ad_generator_callback = self.content_generator
+        self.monitor.ad_generator_callback = self.content_queue
 
-    async def handle_song_switch(self, new_track_info: Dict[str, Any], pre_generated_ad: Optional[Dict[str, Any]] = None):
-        """Handle immediate song switch detection"""
+    async def handle_song_switch(self, new_track_info: Dict[str, Any], pre_generated_content: Optional[Dict[str, Any]] = None):
+        """Handle immediate song switch detection using content queue"""
         logger.info(f"🔥 SONG SWITCH: {new_track_info['artist']} - {new_track_info['title']}")
 
-        if pre_generated_ad:
-            content_type = pre_generated_ad.get('content_type', 'ad')
-            logger.info(f"✅ Using pre-generated {content_type} for instant playback")
-            # Use pre-generated content for immediate playback
-            await self.content_generator.handle_song_switch_with_pregenerated_content(new_track_info, pre_generated_ad)
+        # Get next content from queue (instant!)
+        content_item = await self.content_queue.get_next_content(new_track_info)
+
+        if content_item:
+            content_type = content_item.content_type
+            logger.info(f"✅ Using queued {content_type} for instant playback")
+            # Use queued content for immediate playback
+            await self.content_generator.handle_song_switch_with_pregenerated_content(
+                new_track_info,
+                content_item.data
+            )
         else:
-            logger.info("🚫 No pre-generated content available - skipping break to avoid delay")
-            logger.info("   (Content will be pre-generated for the next natural transition)")
+            logger.warning("🚫 No queued content available - generating emergency content")
+            # Fallback to old method for emergency
+            await self.content_generator.handle_song_switch(new_track_info)
 
     async def start(self):
         """Start the YouTube Music integration"""
@@ -78,8 +87,13 @@ class YouTubeMusicIntegration:
         logger.info("📻 Make sure server.py is running")
 
         try:
+            # Start the content queue system
+            await self.content_queue.start()
+
+            # Start monitoring
             await self.monitor.start_monitoring()
         finally:
+            await self.content_queue.stop()
             await self.monitor.close_session()
 
     def stop(self):

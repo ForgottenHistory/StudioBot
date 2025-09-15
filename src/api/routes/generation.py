@@ -7,6 +7,7 @@ import random
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from pathlib import Path
+from src.content.content_types import ContentGenerationParams
 
 generation_bp = Blueprint('generation', __name__, url_prefix='/generate')
 
@@ -274,7 +275,7 @@ def init_generation_routes(radio_server):
                 "error": str(e)
             }), 500
 
-    @generation_bp.route('_ad', methods=['POST'])
+    @generation_bp.route('/generate_ad', methods=['POST'])
     def generate_ad_for_music():
         """Generate ad based on current music track context (called by music integration)"""
         data = request.json
@@ -331,6 +332,85 @@ def init_generation_routes(radio_server):
                 "error": "Failed to generate ad content"
             }), 500
 
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+
+    @generation_bp.route('/content', methods=['POST'])
+    def generate_content():
+        """Generate any type of content using the generic content system"""
+        data = request.json
+        if not data:
+            return jsonify({"error": "JSON data required"}), 400
+
+        # Extract parameters
+        content_type = data.get('content_type', 'ad')
+        topic = data.get('topic')
+        personalities = data.get('personalities', [])
+        track_info = data.get('track_info')
+        custom_params = data.get('custom_params', {})
+
+        try:
+            # Create generation parameters
+            params = ContentGenerationParams(
+                topic=topic,
+                personalities=personalities,
+                track_info=track_info,
+                custom_params=custom_params
+            )
+
+            # Generate content
+            content = radio_server.content_generator.generate_content(content_type, params)
+
+            if content:
+                # Generate TTS audio
+                audio_file = radio_server.voice_manager.generate_content_tts(
+                    content_type, content, personalities
+                )
+
+                if audio_file:
+                    # Log the generation
+                    radio_server.log_generation(
+                        f'{content_type}_content',
+                        content,
+                        content_type=content_type,
+                        topic=topic,
+                        personalities=personalities,
+                        audio_file=audio_file
+                    )
+
+                    return jsonify({
+                        "success": True,
+                        "content": content,
+                        "audio_url": f"/audio/{Path(audio_file).name}",
+                        "content_type": content_type,
+                        "topic": topic,
+                        "personalities": personalities,
+                        "generated_at": datetime.now().isoformat()
+                    })
+
+            return jsonify({
+                "success": False,
+                "error": "Failed to generate content"
+            }), 500
+
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+
+    @generation_bp.route('/content_types', methods=['GET'])
+    def list_content_types():
+        """List all available content types"""
+        try:
+            content_types = radio_server.content_generator.get_content_types()
+            return jsonify({
+                "success": True,
+                "content_types": content_types
+            })
         except Exception as e:
             return jsonify({
                 "success": False,

@@ -6,7 +6,7 @@ Handles TTS generation and voice configuration for radio personalities.
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import torch
 import torchaudio as ta
 import numpy as np
@@ -15,6 +15,7 @@ from chatterbox.tts import ChatterboxTTS
 from scripts.radio_effects_working import apply_radio_effects
 from src.voice.conversation_tts import ConversationTTSHandler
 from src.audio.jingle_manager import JingleManager
+from src.content.content_types import content_type_registry
 
 
 class VoiceManager:
@@ -147,7 +148,7 @@ class VoiceManager:
 
     def generate_tts_audio(self, text, voice_config=None, personality_name=None):
         """Generate TTS audio with enhanced personality support"""
-        if personality_name:
+        if personality_name and not voice_config:
             voice_config = self.get_personality_voice_config(personality_name)
         elif not voice_config:
             voice_config = self.voice_mapping["host"]
@@ -309,11 +310,11 @@ class VoiceManager:
             print(f"[VOICE] Error stitching audio segments: {e}")
             return None
 
-    def generate_conversation_tts(self, conversation_text: str, host_personality: str, guest_personality: str) -> Optional[str]:
+    def generate_conversation_tts(self, conversation_text: str, host_personality: str, guest_personality: str, audio_effect: str = "vintage_radio") -> Optional[str]:
         """Generate multi-voice TTS for a conversation between two personalities"""
-        # Generate the base conversation audio
+        # Generate the base conversation audio with specified effect
         conversation_audio = self.conversation_handler.generate_conversation_audio(
-            conversation_text, host_personality, guest_personality
+            conversation_text, host_personality, guest_personality, audio_effect
         )
 
         # Add jingles if enabled and conversation was successfully generated
@@ -338,3 +339,51 @@ class VoiceManager:
                 print(f"[VOICE] Unknown jingle issue")
 
         return conversation_audio
+
+    def generate_personality_tts(self, text: str, personality: str) -> Optional[str]:
+        """Generate TTS for a specific personality - wrapper for API compatibility"""
+        return self.generate_tts_audio(text, personality_name=personality)
+
+    def stitch_audio_files(self, audio_files: list) -> Optional[str]:
+        """Stitch multiple audio files together - wrapper for API compatibility"""
+        # Convert audio file URLs to actual file paths
+        segments = []
+        for audio_file in audio_files:
+            if audio_file.startswith('/audio/'):
+                filename = audio_file[7:]  # Remove '/audio/' prefix
+                segments.append({'audio_url': audio_file})
+            else:
+                # Assume it's already a file path
+                segments.append({'audio_url': f'/audio/{Path(audio_file).name}'})
+
+        return self.stitch_audio_segments(segments)
+
+    def generate_content_tts(self, content_type_name: str, content: str, personalities: List[str] = None) -> Optional[str]:
+        """Generate TTS for any content type using the generic system"""
+        # Get content type for audio settings
+        content_type = content_type_registry.get(content_type_name)
+        if not content_type:
+            print(f"[VOICE] Unknown content type: {content_type_name}")
+            return None
+
+        # Get audio settings for this content type
+        from src.content.content_types import ContentGenerationParams
+        params = ContentGenerationParams(personalities=personalities)
+        audio_settings = content_type.get_audio_settings(params)
+
+        print(f"[VOICE] Generating {content_type.display_name} TTS")
+        print(f"[VOICE] Audio effect: {audio_settings.effect_type}")
+        print(f"[VOICE] Multi-voice: {audio_settings.multi_voice}")
+
+        if audio_settings.multi_voice and personalities and len(personalities) >= 2:
+            # Multi-voice generation (conversations, interviews)
+            return self.generate_conversation_tts(content, personalities[0], personalities[1], audio_settings.effect_type)
+        else:
+            # Single voice generation (ads)
+            personality = personalities[0] if personalities else audio_settings.personality_roles[0]
+            voice_config = self.get_personality_voice_config(personality)
+
+            # Override effect type for this content type
+            voice_config["radio_effect"] = audio_settings.effect_type
+
+            return self.generate_tts_audio(content, voice_config=voice_config, personality_name=personality)

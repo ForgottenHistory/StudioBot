@@ -29,8 +29,7 @@ class YouTubeMusicMonitor:
         self.accumulated_play_time = 0  # Total time actually played (excluding pauses)
         self.last_update_time = None  # When we last updated the play time
         self.was_playing = False  # Previous playing state
-        self.ad_pre_generated = False  # Track if ad is ready
-        self.pre_generated_ad = None  # Store pre-generated ad data
+        # Queue system handles all pre-generation
         self.is_running = False
         self.session = None
         self.access_token = None
@@ -152,33 +151,22 @@ class YouTubeMusicMonitor:
                         old_track = self.current_track_info
                         old_start_time = self.track_start_time
 
-                        # SAVE the pre-generated ad before resetting
-                        saved_pre_generated_ad = self.pre_generated_ad
-
                         # Update current track
                         self.current_track_id = track_id
                         self.current_track_info = song_info
                         self.track_start_time = datetime.now()
-                        self.ad_pre_generated = False  # Reset ad generation for new track
-                        self.pre_generated_ad = None  # Reset for new track
 
                         logger.info(f"🎵 Track changed to: {song_info['artist']} - {song_info['title']}")
 
-                        # Check if this was a natural transition and we have a pre-generated ad
+                        # Check if this was a natural transition
                         if await self.was_natural_transition(old_track, old_start_time):
-                            logger.info("🔥 Natural song transition detected - using pre-generated ad")
-                            if saved_pre_generated_ad:
-                                logger.info(f"✅ Pre-generated ad available: {saved_pre_generated_ad.get('track_context', {}).get('title', 'Unknown')}")
-                            else:
-                                logger.info("⚠️ No pre-generated ad stored")
-
+                            logger.info("🔥 Natural song transition detected - using queue content")
                             if self.on_track_change:
-                                # Pass the SAVED pre-generated ad
-                                await self.on_track_change(song_info, saved_pre_generated_ad)
+                                await self.on_track_change(song_info)
                         else:
                             logger.info("👤 Manual song change detected - skipping ad")
 
-                    # Same track - update position info and check pre-generation
+                    # Same track - update position info
                     elif self.current_track_info:
                         # Always update the current track info with latest position data
                         # so when it becomes old_track, it has the most recent position
@@ -187,18 +175,12 @@ class YouTubeMusicMonitor:
                             'is_playing': song_info.get('is_playing', False)
                         })
 
-                        # Check if we need to pre-generate an ad for the current song
-                        if not self.ad_pre_generated:
-                            await self.check_pre_generation(song_info)
-
                 else:
                     # No song currently playing
                     if self.current_track_id is not None:
                         logger.info("⏹️  No song currently playing")
                         self.current_track_id = None
                         self.current_track_info = None
-                        self.ad_pre_generated = False
-                        self.pre_generated_ad = None
 
             except Exception as e:
                 logger.error(f"❌ Error in monitoring loop: {e}")
@@ -287,31 +269,6 @@ class YouTubeMusicMonitor:
             logger.error(f"Error calculating transition type: {e}")
 
         return False  # Default to manual when in doubt
-
-    async def check_pre_generation(self, song_info: Dict[str, Any]):
-        """Check if we should pre-generate an ad for the current song using real-time API data"""
-        try:
-            duration = song_info.get('duration_seconds', 0)
-
-            if duration > 60:  # Only for songs longer than 1 minute
-                # Get REAL-TIME remaining time from API (accounts for pauses automatically)
-                time_remaining = self.get_real_time_remaining(song_info)
-                current_position = song_info.get('current_time_seconds', 0)
-                is_playing = song_info.get('is_playing', False)
-
-                # Pre-generate ad when 60 seconds remaining AND music is playing
-                if time_remaining <= 60 and time_remaining > 0 and is_playing:
-                    logger.info(f"🚀 Pre-generating ad (API says {time_remaining:.1f}s remaining, at {current_position:.1f}s)")
-                    self.ad_pre_generated = True
-
-                    # Generate ad in background via callback
-                    if hasattr(self, 'ad_generator_callback'):
-                        self.pre_generated_ad = await self.ad_generator_callback.pre_generate_ad_for_track(song_info)
-                    else:
-                        logger.error("❌ No ad generator callback set!")
-
-        except Exception as e:
-            logger.error(f"❌ Error checking pre-generation: {e}")
 
     async def pause_playback(self) -> bool:
         """Pause YouTube Music playback"""

@@ -70,9 +70,6 @@ function App() {
           <Component
             topics={topics}
             personalities={personalities}
-            generateAd={generateAd}
-            generateConversation={generateConversation}
-            generateConversationWithAudio={generateConversationWithAudio}
             playAudio={playAudio}
           />
         );
